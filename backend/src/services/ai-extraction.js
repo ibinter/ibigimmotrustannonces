@@ -7,6 +7,7 @@ Extrait les informations structurées de l'annonce immobilière suivante.
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après.
 
 Champs à extraire :
+- titre : titre commercial accrocheur de l'annonce (ex: "Villa 4 pièces à vendre à Cocody Angré", "Appartement meublé à louer à Marcory"). Doit être précis et informatif.
 - type_bien : "villa" | "appartement" | "terrain" | "bureau" | "magasin" | "studio" | "duplex" | "autre"
 - transaction : "vente" | "location" | "colocation" | "autre"
 - commune : commune d'Abidjan (ex: "Cocody", "Yopougon", "Marcory", "Plateau"…) ou null
@@ -16,7 +17,7 @@ Champs à extraire :
 - superficie : nombre en m² ou null
 - nb_pieces : nombre de pièces/chambres ou null
 - contact : numéro de téléphone ou WhatsApp extrait, ou null
-- description_ia : résumé en 1-2 phrases des points clés de l'annonce
+- description_ia : description complète et attractive en 2-4 phrases mettant en valeur les points forts du bien (emplacement, équipements, état, avantages)
 
 Si une information n'est pas présente, mets null.`;
 

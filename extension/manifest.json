@@ -1,21 +1,40 @@
 {
   "manifest_version": 3,
-  "name": "IBIG Immo Trust — Collecte Facebook",
-  "version": "1.0.0",
-  "description": "Bouton manuel d'extraction d'annonces immobilières Facebook",
-  "permissions": ["activeTab", "storage"],
-  "host_permissions": ["https://www.facebook.com/*"],
-  "content_scripts": [
-    {
-      "matches": ["https://www.facebook.com/*"],
-      "js": ["content.js"],
-      "css": ["content.css"],
-      "run_at": "document_idle"
-    }
+  "name": "IBIG Immo Trust — Capteur",
+  "version": "1.2.0",
+  "description": "Capture automatique des annonces immobilières Facebook vers IBIG Immo Trust",
+  "permissions": ["activeTab", "scripting", "storage", "alarms", "tabs"],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://web.whatsapp.com/*",
+    "https://api.ibigimmotrust.com/*",
+    "https://*.fbcdn.net/*",
+    "https://*.fbsbx.com/*",
+    "https://*.facebook.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16":  "icon-16.png",
+    "32":  "icon-32.png",
+    "48":  "icon-48.png",
+    "128": "icon-128.png"
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "IBIG Immo Trust"
+    "default_icon": {
+      "16":  "icon-16.png",
+      "32":  "icon-32.png",
+      "48":  "icon-48.png",
+      "128": "icon-128.png"
+    }
   },
-  "icons": { "128": "icon128.png" }
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/*", "https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

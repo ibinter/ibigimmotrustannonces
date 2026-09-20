@@ -22,7 +22,7 @@ router.post('/', upload.array('images', 10), async (req, res) => {
     const {
       texte_brut, source, groupe_source, lien_original,
       auteur_nom, auteur_id, date_publication,
-      type_bien, transaction, commune, quartier,
+      titre, type_bien, transaction, commune, quartier,
       prix, superficie, nb_pieces, contact, description_ia,
     } = req.body;
 
@@ -33,12 +33,12 @@ router.post('/', upload.array('images', 10), async (req, res) => {
     const { rows: [annonce] } = await query(
       `INSERT INTO annonces
          (source, groupe_source, lien_original, texte_brut, auteur_nom, auteur_id,
-          date_publication, type_bien, transaction, commune, quartier, prix,
+          date_publication, titre, type_bien, transaction, commune, quartier, prix,
           superficie, nb_pieces, contact, description_ia)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING *`,
       [source, groupe_source, lien_original, texte_brut, auteur_nom, auteur_id,
-       date_publication || null, type_bien, transaction, commune, quartier,
+       date_publication || null, titre || null, type_bien, transaction, commune, quartier,
        prix ? parseInt(prix) : null, superficie ? parseFloat(superficie) : null,
        nb_pieces ? parseInt(nb_pieces) : null, contact, description_ia]
     );
@@ -156,7 +156,7 @@ router.get('/:id', async (req, res) => {
 // PATCH /api/annonces/:id — modifier une annonce
 router.patch('/:id', async (req, res) => {
   try {
-    const allowed = ['type_bien','transaction','commune','quartier','prix',
+    const allowed = ['titre','type_bien','transaction','commune','quartier','prix',
                      'superficie','nb_pieces','contact','description_ia','statut'];
     const fields = Object.keys(req.body).filter(f => allowed.includes(f));
     if (!fields.length) return res.status(400).json({ error: 'Aucun champ modifiable' });
@@ -199,11 +199,12 @@ router.post('/re-extraire', async (req, res) => {
         const ext = await extraireAnnonce(ann.texte_brut);
         await query(
           `UPDATE annonces SET
-             type_bien=$2, transaction=$3, commune=$4, quartier=$5,
-             prix=$6, superficie=$7, nb_pieces=$8, contact=$9, description_ia=$10
+             titre=$2, type_bien=$3, transaction=$4, commune=$5, quartier=$6,
+             prix=$7, superficie=$8, nb_pieces=$9, contact=$10, description_ia=$11
            WHERE id=$1`,
           [
             ann.id,
+            ext.titre || null,
             ext.type_bien || null,
             ext.transaction || null,
             ext.commune || null,

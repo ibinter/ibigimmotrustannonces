@@ -5,6 +5,7 @@ import {
   MapPin, AlertCircle, X, Edit2, Trash2, Save, Phone, MessageCircle,
   ChevronRight, Search, SlidersHorizontal, FileDown, ExternalLink,
   ChevronLeft, ArrowUpDown, Home, Building2, Layers, Calendar, RefreshCw,
+  User, Users, Link2, Maximize2, Hash, Tag, DollarSign, ZoomIn,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { exportAnnoncesPDF } from '../utils/exportPDF';
@@ -72,7 +73,9 @@ function AnnonceDetail({ annonce, onClose }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
   const [form, setForm] = useState({
+    titre: annonce.titre || '',
     type_bien: annonce.type_bien || '',
     transaction: annonce.transaction || '',
     commune: annonce.commune || '',
@@ -117,9 +120,9 @@ function AnnonceDetail({ annonce, onClose }) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <div>
-            <h2 className="font-semibold text-gray-900 capitalize">
-              {detail.type_bien || 'Bien'} — {detail.transaction}
+          <div className="flex-1 min-w-0 pr-3">
+            <h2 className="font-semibold text-gray-900 capitalize leading-snug">
+              {detail.titre || [detail.type_bien, detail.transaction, detail.commune ? `à ${detail.commune}` : null, detail.quartier].filter(Boolean).join(' ') || 'Bien immobilier'}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               {[detail.quartier, detail.commune].filter(Boolean).join(', ')}
@@ -195,56 +198,87 @@ function AnnonceDetail({ annonce, onClose }) {
             </div>
           )}
 
-          {/* Prix + lien */}
-          <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100">
-            <span className="text-xl font-bold text-brand-700">{prix(detail.prix)}</span>
-            <div className="flex items-center gap-2">
-              {detail.contact && (
-                <a href={`tel:${detail.contact}`}
-                  className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-full hover:bg-green-100">
-                  <Phone size={11} /> {detail.contact}
-                </a>
-              )}
+          {/* Prix + actions contact */}
+          <div className="px-5 py-4 border-b border-gray-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold text-brand-700">{prix(detail.prix)}</span>
               {detail.lien_original && (
                 <a href={detail.lien_original} target="_blank" rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full hover:bg-blue-100 font-medium"
-                  title={detail.lien_original}>
-                  <ExternalLink size={11} /> Voir l'annonce source
+                  className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full hover:bg-blue-100 font-medium">
+                  <ExternalLink size={11} /> Annonce originale
                 </a>
               )}
             </div>
+
+            {/* Contact vendeur */}
+            {(detail.contact || detail.auteur_nom) && (
+              <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                  <User size={11} /> Vendeur / Propriétaire
+                </p>
+                {detail.auteur_nom && (
+                  <p className="text-sm font-medium text-gray-800">{detail.auteur_nom}</p>
+                )}
+                {detail.groupe_source && (
+                  <p className="text-xs text-gray-400 flex items-center gap-1">
+                    <Users size={10} /> Groupe : {detail.groupe_source}
+                  </p>
+                )}
+                {detail.contact && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a href={`tel:${detail.contact}`}
+                      className="flex items-center gap-1.5 text-xs bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full hover:bg-gray-100 font-medium">
+                      <Phone size={11} /> {detail.contact}
+                    </a>
+                    <a href={`https://wa.me/${detail.contact.replace(/\D/g,'')}`}
+                      target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs bg-green-500 text-white px-3 py-1.5 rounded-full hover:bg-green-600 font-medium">
+                      <MessageCircle size={11} /> WhatsApp
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Champs */}
+          {/* Caractéristiques */}
           <div className="px-5 py-4 border-b border-gray-100">
             {editing ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {[
-                  ['type_bien', 'Type', TYPES, 'select'],
-                  ['transaction', 'Transaction', TRANSACTIONS, 'select'],
-                  ['commune', 'Commune', null, 'text'],
-                  ['quartier', 'Quartier', null, 'text'],
-                  ['prix', 'Prix (FCFA)', null, 'number'],
-                  ['superficie', 'Superficie (m²)', null, 'number'],
-                  ['nb_pieces', 'Nb pièces', null, 'number'],
-                  ['contact', 'Contact', null, 'text'],
-                ].map(([k, lbl, opts, type]) => (
-                  <div key={k}>
-                    <label className="text-xs text-gray-400 mb-1 block">{lbl}</label>
-                    {type === 'select'
-                      ? <select value={form[k]} onChange={set(k)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                          {opts.map(o => <option key={o}>{o}</option>)}
-                        </select>
-                      : <input type={type} value={form[k]} onChange={set(k)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                    }
-                  </div>
-                ))}
-                <div className="col-span-2">
-                  <label className="text-xs text-gray-400 mb-1 block">Description IA</label>
-                  <textarea value={form.description_ia} onChange={set('description_ia')}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none h-20" />
+              <div className="space-y-3 text-sm">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Titre de l'annonce</label>
+                  <input value={form.titre} onChange={set('titre')}
+                    placeholder="Ex: Villa 4 pièces à vendre à Cocody Angré"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
-                <div className="col-span-2 flex gap-2">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['type_bien', 'Type', TYPES, 'select'],
+                    ['transaction', 'Transaction', TRANSACTIONS, 'select'],
+                    ['commune', 'Commune', null, 'text'],
+                    ['quartier', 'Quartier', null, 'text'],
+                    ['prix', 'Prix (FCFA)', null, 'number'],
+                    ['superficie', 'Superficie (m²)', null, 'number'],
+                    ['nb_pieces', 'Nb pièces', null, 'number'],
+                    ['contact', 'Contact', null, 'text'],
+                  ].map(([k, lbl, opts, type]) => (
+                    <div key={k}>
+                      <label className="text-xs text-gray-400 mb-1 block">{lbl}</label>
+                      {type === 'select'
+                        ? <select value={form[k]} onChange={set(k)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                            {opts.map(o => <option key={o}>{o}</option>)}
+                          </select>
+                        : <input type={type} value={form[k]} onChange={set(k)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                      }
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Description</label>
+                  <textarea value={form.description_ia} onChange={set('description_ia')}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none h-24" />
+                </div>
+                <div className="flex gap-2">
                   <button onClick={() => update.mutate(form)}
                     disabled={update.isPending}
                     className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50">
@@ -257,42 +291,62 @@ function AnnonceDetail({ annonce, onClose }) {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {[
-                  ['Type', detail.type_bien],
-                  ['Transaction', detail.transaction],
-                  ['Commune', detail.commune],
-                  ['Quartier', detail.quartier],
-                  ['Superficie', detail.superficie ? `${detail.superficie} m²` : null],
-                  ['Pièces', detail.nb_pieces],
-                  ['Contact', detail.contact],
-                  ['Source', detail.source],
-                ].map(([lbl, val]) => val ? (
-                  <div key={lbl}>
-                    <p className="text-xs text-gray-400">{lbl}</p>
-                    <p className="font-medium capitalize">{val}</p>
-                  </div>
-                ) : null)}
+              <div className="space-y-4">
+                {/* Badges caractéristiques */}
+                <div className="flex flex-wrap gap-2">
+                  {detail.type_bien && (
+                    <span className="flex items-center gap-1 text-xs bg-brand-50 text-brand-700 border border-brand-200 px-2.5 py-1 rounded-full capitalize font-medium">
+                      <Home size={10} /> {detail.type_bien}
+                    </span>
+                  )}
+                  {detail.transaction && (
+                    <span className="flex items-center gap-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2.5 py-1 rounded-full capitalize font-medium">
+                      <Tag size={10} /> {detail.transaction}
+                    </span>
+                  )}
+                  {detail.commune && (
+                    <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full font-medium">
+                      <MapPin size={10} /> {detail.commune}{detail.quartier ? ` · ${detail.quartier}` : ''}
+                    </span>
+                  )}
+                  {detail.superficie && (
+                    <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full font-medium">
+                      <Maximize2 size={10} /> {detail.superficie} m²
+                    </span>
+                  )}
+                  {detail.nb_pieces && (
+                    <span className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full font-medium">
+                      <Hash size={10} /> {detail.nb_pieces} pièce{detail.nb_pieces > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Description */}
                 {detail.description_ia && (
-                  <div className="col-span-2">
-                    <p className="text-xs text-gray-400 mb-1">Description</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-line">{detail.description_ia}</p>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1.5 font-medium uppercase tracking-wide">Description</p>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{detail.description_ia}</p>
                   </div>
                 )}
+
+                {/* Texte brut (rétractable) */}
+                {detail.texte_brut && (
+                  <details className="border border-gray-100 rounded-xl">
+                    <summary className="px-3 py-2 text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">
+                      Texte brut de l'annonce
+                    </summary>
+                    <p className="px-3 pb-3 text-xs text-gray-500 whitespace-pre-line leading-relaxed">{detail.texte_brut}</p>
+                  </details>
+                )}
+
+                {/* Lien source */}
                 {detail.lien_original && (
-                  <div className="col-span-2">
-                    <p className="text-xs text-gray-400 mb-1">Lien source (référence)</p>
+                  <div className="flex items-center gap-2">
+                    <Link2 size={11} className="text-gray-400 shrink-0" />
                     <a href={detail.lien_original} target="_blank" rel="noreferrer"
-                      className="text-xs text-blue-600 hover:underline break-all flex items-start gap-1">
-                      <ExternalLink size={11} className="shrink-0 mt-0.5" />
+                      className="text-xs text-blue-600 hover:underline truncate">
                       {detail.lien_original}
                     </a>
-                  </div>
-                )}
-                {detail.texte_brut && (
-                  <div className="col-span-2">
-                    <p className="text-xs text-gray-400 mb-1">Texte brut de l'annonce</p>
-                    <p className="text-xs text-gray-500 whitespace-pre-line line-clamp-5">{detail.texte_brut}</p>
                   </div>
                 )}
               </div>
