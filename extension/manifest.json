@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "IBIG Immo Trust — Collecte Facebook",
+  "version": "1.0.0",
+  "description": "Bouton manuel d'extraction d'annonces immobilières Facebook",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://www.facebook.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "IBIG Immo Trust"
+  },
+  "icons": { "128": "icon128.png" }
+}

@@ -1,0 +1,18 @@
+.ibig-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 9999;
+  background: #0284c7;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: background 0.15s;
+}
+.ibig-btn:hover  { background: #0369a1; }
+.ibig-btn:disabled { opacity: 0.6; cursor: default; }

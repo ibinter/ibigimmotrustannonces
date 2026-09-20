@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: system-ui; width: 220px; padding: 12px; margin: 0; background: #fff; }
+    h1   { font-size: 13px; font-weight: 700; color: #0284c7; margin: 0 0 8px; }
+    p    { font-size: 11px; color: #6b7280; margin: 0 0 6px; }
+    .quota { font-size: 12px; font-weight: 600; color: #374151; }
+    a    { color: #0284c7; font-size: 11px; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>IBIG Immo Trust</h1>
+  <p>Bouton <strong>📋 IBIG</strong> visible sur chaque post Facebook.</p>
+  <p class="quota" id="quota">Chargement quota…</p>
+  <p style="margin-top:8px"><a href="http://localhost:5173" target="_blank">Ouvrir le dashboard →</a></p>
+  <script>
+    const key = 'ibig_quota_' + new Date().toDateString();
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: (k) => parseInt(localStorage.getItem(k) || '0'),
+        args: [key],
+      }, results => {
+        const q = results?.[0]?.result ?? 0;
+        document.getElementById('quota').textContent = `Extractions aujourd'hui : ${q} / 50`;
+      });
+    });
+  </script>
+</body>
+</html>
