@@ -74,6 +74,7 @@ function AnnonceDetail({ annonce, onClose }) {
   const [editing, setEditing] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
   const [lightbox, setLightbox] = useState(false);
+  const [refetching, setRefetching] = useState(false);
   const [form, setForm] = useState({
     titre: annonce.titre || '',
     type_bien: annonce.type_bien || '',
@@ -113,6 +114,34 @@ function AnnonceDetail({ annonce, onClose }) {
   const videos = allMedia.filter(u => u.match(/\.(mp4|mov|webm|avi|3gp|mpeg|ogv)(\?|$)/i));
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
+  const lancerRefetch = () => {
+    const url = detail.lien_original;
+    if (!url || !url.includes('facebook.com')) {
+      alert('Pas de lien Facebook disponible pour cette annonce.');
+      return;
+    }
+    setRefetching(true);
+    const handler = evt => {
+      if (!evt.data || evt.data.type !== 'IBIG_REFETCH_RESULT') return;
+      if (evt.data.id !== detail.id) return;
+      window.removeEventListener('message', handler);
+      setRefetching(false);
+      if (evt.data.ok) {
+        qc.invalidateQueries(['annonces']);
+        qc.invalidateQueries(['annonce', detail.id]);
+      } else {
+        alert(`Erreur refetch : ${evt.data.error || 'inconnue'}. Assurez-vous que l'extension IBIG est active.`);
+      }
+    };
+    window.addEventListener('message', handler);
+    window.postMessage({ type: 'IBIG_REFETCH', id: detail.id, url }, '*');
+    // Timeout 30s
+    setTimeout(() => {
+      window.removeEventListener('message', handler);
+      if (refetching) setRefetching(false);
+    }, 30000);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
@@ -131,6 +160,12 @@ function AnnonceDetail({ annonce, onClose }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {detail.lien_original?.includes('facebook.com') && (
+              <button onClick={lancerRefetch} disabled={refetching} title="Récupérer le contenu complet depuis Facebook"
+                className={clsx('p-1.5 rounded-lg text-sm', refetching ? 'animate-spin text-blue-500' : 'hover:bg-blue-50 text-blue-400')}>
+                <RefreshCw size={14} />
+              </button>
+            )}
             <button onClick={() => setEditing(e => !e)}
               className={clsx('p-1.5 rounded-lg text-sm', editing ? 'bg-brand-100 text-brand-700' : 'hover:bg-gray-100 text-gray-500')}>
               <Edit2 size={14} />

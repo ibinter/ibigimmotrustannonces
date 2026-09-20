@@ -86,7 +86,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   }
 });
 
-// ── Messages depuis la page (badge, compte) ───────────────────────────────────
+// ── Messages depuis la page (badge, compte, refetch) ─────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === 'IBIG_COUNT_UPDATE') {
     chrome.storage.local.set({ ibig_auto_count: msg.count });
@@ -96,7 +96,125 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === 'IBIG_SCROLL_DONE') {
     // scroll terminé dans la page, rien à faire ici
   }
+  if (msg.type === 'IBIG_REFETCH_ANNONCE') {
+    const senderTabId = sender.tab?.id;
+    refetchAnnonce(msg.id, msg.url, senderTabId);
+  }
 });
+
+// ── Refetch complet d'une annonce depuis son lien Facebook ───────────────────
+async function refetchAnnonce(annonceId, fbUrl, callerTabId) {
+  const store = await chrome.storage.local.get(['ibig_token']);
+  const token = store.ibig_token;
+  if (!token) {
+    if (callerTabId) chrome.tabs.sendMessage(callerTabId, { type: 'IBIG_REFETCH_RESULT', id: annonceId, ok: false, error: 'Non connecté' });
+    return;
+  }
+
+  let fbTab = null;
+  try {
+    // Ouvrir l'URL Facebook en arrière-plan
+    fbTab = await chrome.tabs.create({ url: fbUrl, active: false });
+    // Attendre le chargement complet
+    await new Promise(resolve => {
+      const listener = (tabId, changeInfo) => {
+        if (tabId === fbTab.id && changeInfo.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+      // Fallback timeout 15s
+      setTimeout(resolve, 15000);
+    });
+
+    // Laisser le JS de Facebook se charger
+    await new Promise(r => setTimeout(r, 4000));
+
+    // Injecter le script d'extraction complet
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: fbTab.id },
+      func: extractFullPost,
+    });
+
+    const data = result?.result;
+    if (!data || !data.texte) {
+      throw new Error('Impossible d\'extraire le contenu');
+    }
+
+    // Appeler l'API pour structurer avec l'IA et mettre à jour l'annonce
+    const iaRes = await fetch(`${API}/api/annonces/extraire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ texte_brut: data.texte }),
+    });
+    const iaData = await iaRes.json();
+    const ia = iaData.extraction || {};
+
+    // PATCH l'annonce avec les données enrichies
+    const patchBody = {
+      texte_brut: data.texte,
+      ...(ia.titre        && { titre:         ia.titre }),
+      ...(ia.type_bien    && { type_bien:     ia.type_bien }),
+      ...(ia.transaction  && { transaction:   ia.transaction }),
+      ...(ia.commune      && { commune:        ia.commune }),
+      ...(ia.quartier     && { quartier:       ia.quartier }),
+      ...(ia.prix         && { prix:           ia.prix }),
+      ...(ia.superficie   && { superficie:     ia.superficie }),
+      ...(ia.nb_pieces    && { nb_pieces:      ia.nb_pieces }),
+      ...(ia.contact      && { contact:        ia.contact }),
+      ...((ia.description_ia || ia.description) && { description_ia: ia.description_ia || ia.description }),
+    };
+
+    await fetch(`${API}/api/annonces/${annonceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patchBody),
+    });
+
+    if (callerTabId) chrome.tabs.sendMessage(callerTabId, { type: 'IBIG_REFETCH_RESULT', id: annonceId, ok: true });
+  } catch (err) {
+    console.error('IBIG refetch error:', err.message);
+    if (callerTabId) chrome.tabs.sendMessage(callerTabId, { type: 'IBIG_REFETCH_RESULT', id: annonceId, ok: false, error: err.message });
+  } finally {
+    if (fbTab) chrome.tabs.remove(fbTab.id).catch(() => {});
+  }
+}
+
+// Fonction injectée dans l'onglet Facebook pour extraire le post complet
+function extractFullPost() {
+  // Cliquer "Voir plus"
+  const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite'];
+  document.querySelectorAll('[role="button"], [role="link"], button').forEach(btn => {
+    const t = (btn.innerText || btn.textContent || '').trim().toLowerCase();
+    if (VOIR_PLUS.some(k => t.includes(k))) { try { btn.click(); } catch(_){} }
+  });
+
+  // Attendre un instant puis extraire
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // Extraire le texte complet
+      const article = document.querySelector('div[role="article"]') || document.body;
+      let best = '';
+      article.querySelectorAll('div[dir="auto"], span[dir="auto"]').forEach(node => {
+        if (node.closest('a[href]') || node.closest('button') || node.closest('[role="button"]')) return;
+        const t = (node.innerText || '').trim();
+        if (t.length > best.length) best = t;
+      });
+
+      // Extraire les images
+      const imgs = [];
+      const BAD = /emoji|avatar|sticker|rsrc\.php|1x1|static|_s\.jpg|profile/i;
+      article.querySelectorAll('img[src]').forEach(img => {
+        if (!img.src || BAD.test(img.src)) return;
+        if ((img.naturalWidth || 0) < 100 || (img.naturalHeight || 0) < 100) return;
+        if (imgs.length < 8) imgs.push(img.src);
+      });
+
+      resolve({ texte: best, imgs });
+    }, 2000);
+  });
+}
 
 // ── Lancer le scan avec scroll automatique ────────────────────────────────────
 async function lancerAutoScan(tabId, token) {
