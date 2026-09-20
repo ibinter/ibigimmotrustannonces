@@ -10,7 +10,7 @@ const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={qc}>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.PROD ? '/opportunites-annonces' : '/'}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>

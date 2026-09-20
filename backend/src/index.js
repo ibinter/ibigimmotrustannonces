@@ -5,7 +5,13 @@ const path    = require('path');
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
+const ALLOWED = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'https://ibigimmotrust.com',
+  'https://www.ibigimmotrust.com',
+].filter(Boolean);
+app.use(cors({ origin: ALLOWED }));
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

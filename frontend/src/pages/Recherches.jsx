@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../api';
 import { Plus, X, Phone } from 'lucide-react';
 
 function prix(p) {
@@ -24,11 +24,11 @@ export default function Recherches() {
 
   const { data: recherches = [] } = useQuery({
     queryKey: ['recherches'],
-    queryFn: () => axios.get('/api/recherches').then(r => r.data),
+    queryFn: () => api.get('/api/recherches').then(r => r.data),
   });
 
   const create = useMutation({
-    mutationFn: data => axios.post('/api/recherches', data).then(r => r.data),
+    mutationFn: data => api.post('/api/recherches', data).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries(['recherches']); setForm(null); },
   });
 

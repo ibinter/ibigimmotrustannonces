@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import axios from 'axios';
+import api from '../api';
 import { Wand2, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const SOURCES = ['facebook', 'whatsapp'];
@@ -33,10 +33,10 @@ export default function Import() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await axios.post('/api/annonces/extraire', { texte_brut: texte });
+      const { data } = await api.post('/api/annonces/extraire', { texte_brut: texte });
       setExtracted(data.extraction);
     } catch (e) {
-      setError(e.response?.data?.error || 'Erreur lors de l'extraction IA');
+      setError(e.response?.data?.error || "Erreur lors de l'extraction IA");
     } finally {
       setLoading(false);
     }
@@ -58,14 +58,14 @@ export default function Import() {
         });
       }
       images.forEach(img => fd.append('images', img));
-      const { data } = await axios.post('/api/annonces', fd);
+      const { data } = await api.post('/api/annonces', fd);
       setSaved(data);
       setTexte(''); setLien(''); setImages([]); setExtracted(null);
     } catch (e) {
       if (e.response?.status === 409) {
         setError('Doublon détecté : une annonce similaire existe déjà.');
       } else {
-        setError(e.response?.data?.error || 'Erreur lors de l'enregistrement');
+        setError(e.response?.data?.error || "Erreur lors de l'enregistrement");
       }
     } finally {
       setLoading(false);

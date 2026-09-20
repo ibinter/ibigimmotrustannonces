@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../api';
 import { MessageSquare, ChevronRight } from 'lucide-react';
 
 const COLS = [
@@ -92,16 +92,16 @@ export default function Pipeline() {
 
   const { data: kanban = {}, isLoading } = useQuery({
     queryKey: ['pipeline'],
-    queryFn: () => axios.get('/api/pipeline').then(r => r.data),
+    queryFn: () => api.get('/api/pipeline').then(r => r.data),
   });
 
   const move = useMutation({
-    mutationFn: ({ id, statut }) => axios.patch(`/api/pipeline/${id}`, { statut }),
+    mutationFn: ({ id, statut }) => api.patch(`/api/pipeline/${id}`, { statut }),
     onSuccess: () => qc.invalidateQueries(['pipeline']),
   });
 
   const addNote = useMutation({
-    mutationFn: ({ id, note }) => axios.post(`/api/pipeline/${id}/notes`, { note }),
+    mutationFn: ({ id, note }) => api.post(`/api/pipeline/${id}/notes`, { note }),
     onSuccess: () => qc.invalidateQueries(['pipeline']),
   });
 

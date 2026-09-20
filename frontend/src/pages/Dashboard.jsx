@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../api';
 import { MapPin, DollarSign, Tag, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -22,11 +22,11 @@ export default function Dashboard() {
   const params = Object.fromEntries(Object.entries(filters).filter(([,v]) => v));
   const { data, isLoading } = useQuery({
     queryKey: ['annonces', params],
-    queryFn: () => axios.get('/api/annonces', { params }).then(r => r.data),
+    queryFn: () => api.get('/api/annonces', { params }).then(r => r.data),
   });
   const { data: recherches } = useQuery({
     queryKey: ['recherches'],
-    queryFn: () => axios.get('/api/recherches').then(r => r.data),
+    queryFn: () => api.get('/api/recherches').then(r => r.data),
   });
 
   const set = (k) => (e) => setFilters(f => ({ ...f, [k]: e.target.value }));
