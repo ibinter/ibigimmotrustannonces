@@ -183,12 +183,19 @@ async function refetchAnnonce(annonceId, fbUrl, callerTabId) {
 
 // Fonction injectée dans l'onglet Facebook pour extraire le post complet
 function extractFullPost() {
-  // Cliquer "Voir plus"
-  const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite'];
-  document.querySelectorAll('[role="button"], [role="link"], button').forEach(btn => {
-    const t = (btn.innerText || btn.textContent || '').trim().toLowerCase();
-    if (VOIR_PLUS.some(k => t.includes(k))) { try { btn.click(); } catch(_){} }
-  });
+  // Cliquer "Voir plus" — recherche exhaustive dans TOUT le DOM
+  const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
+  function clickerVoirPlus() {
+    const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
+      .filter(el => {
+        const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+        return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
+      });
+    const innermost = candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+    innermost.forEach(el => { try { el.click(); } catch(_){} });
+    return innermost.length;
+  }
+  clickerVoirPlus();
 
   // Attendre un instant puis extraire
   return new Promise(resolve => {
@@ -322,6 +329,8 @@ async function ibigFullPageScan(token, API, prevCount) {
       return (texte || '')
         .replace(/\s*\.\.\.\s*(voir plus|see more|lire la suite|afficher plus)\s*/gi, '')
         .replace(/^(voir plus|see more)\s*/gi, '')
+        .replace(/\s*…\s*$/, '')
+        .replace(/\s*\.\.\.\s*$/, '')
         .trim();
     }
 
@@ -502,35 +511,26 @@ async function ibigFullPageScan(token, API, prevCount) {
     }
 
     async function expanderTousVoirPlus() {
-      const VOIR_PLUS = [
-        'voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus',
-      ];
+      const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
 
-      const boutons = Array.from(document.querySelectorAll('[role="button"], [role="link"]'))
-        .filter(btn => {
-          const t = (btn.innerText || btn.textContent || '').trim().toLowerCase();
-          return VOIR_PLUS.some(k => t.includes(k));
-        });
+      function trouverBoutons() {
+        // Chercher dans TOUS les éléments du DOM, pas seulement role=button
+        const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
+          .filter(el => {
+            const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+            return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
+          });
+        // Garder seulement les éléments les plus profonds (pas les conteneurs)
+        return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+      }
 
-      if (boutons.length === 0) return;
-
-      // Cliquer chaque bouton et attendre la réponse du DOM
-      const promises = boutons.map(btn => {
-        const container = btn.closest('[data-pagelet]')
-          || btn.closest('div[role="article"]')
-          || btn.closest('div[role="feed"] > div')
-          || btn.closest('[data-ad-preview="message"]')?.parentElement?.parentElement
-          || btn.parentElement?.parentElement?.parentElement;
-
-        const p = attendreExpansion(container);
-        try { btn.click(); } catch(_) {}
-        return p;
-      });
-
-      // Attendre que TOUTES les expansions soient terminées
-      await Promise.all(promises);
-      // Stabilisation DOM
-      await new Promise(r => setTimeout(r, 400));
+      // 3 passes avec délai pour couvrir le chargement lazy de Facebook
+      for (let pass = 0; pass < 3; pass++) {
+        const boutons = trouverBoutons();
+        if (!boutons.length) break;
+        boutons.forEach(btn => { try { btn.click(); } catch(_) {} });
+        await new Promise(r => setTimeout(r, 2000));
+      }
     }
 
     async function scrollAndCapture() {

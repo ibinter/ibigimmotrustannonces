@@ -215,46 +215,36 @@ async function lancerScan() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) { btn.textContent = '🔍 Scanner les posts visibles maintenant'; btn.disabled=false; return; }
 
-    // Étape 1 : cliquer tous les "Voir plus" avec vérification que le bouton disparaît
+    // Étape 1 : cliquer TOUS les "Voir plus" — recherche exhaustive dans tout le DOM
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => new Promise(async resolveAll => {
         const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
 
-        async function clickerVoirPlus() {
-          const boutons = Array.from(document.querySelectorAll('[role="button"], [role="link"]'))
-            .filter(btn => VOIR_PLUS.some(k => (btn.innerText||btn.textContent||'').trim().toLowerCase().includes(k)));
-          if (!boutons.length) return 0;
-
-          const promises = boutons.map(btn => new Promise(resolve => {
-            const container = btn.closest('[data-pagelet]')
-              || btn.closest('[role="article"]')
-              || btn.closest('div[role="feed"] > div')
-              || btn.parentElement?.parentElement?.parentElement;
-
-            if (!container) { try { btn.click(); } catch(_) {} return resolve(); }
-
-            const avant = container.innerText?.length || 0;
-            let done = false;
-            const fin = () => { if (!done) { done=true; obs.disconnect(); resolve(); } };
-            const obs = new MutationObserver(() => {
-              if ((container.innerText?.length||0) > avant + 20) fin();
+        function trouverBoutonsVoirPlus() {
+          // Chercher dans TOUS les éléments (pas seulement role=button)
+          const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
+            .filter(el => {
+              const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+              // Texte court = c'est probablement LE bouton et pas un conteneur
+              return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
             });
-            obs.observe(container, { childList:true, subtree:true, characterData:true });
-            setTimeout(fin, 5000); // attendre jusqu'à 5s
-            try { btn.click(); } catch(_) {}
-          }));
+          // Garder seulement les éléments les plus profonds (pas les ancêtres)
+          return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+        }
 
-          await Promise.all(promises);
+        async function clickerVoirPlus() {
+          const boutons = trouverBoutonsVoirPlus();
+          if (!boutons.length) return 0;
+          boutons.forEach(btn => { try { btn.click(); } catch(_) {} });
+          await new Promise(r => setTimeout(r, 2500));
           return boutons.length;
         }
 
-        // Cliquer une première fois
+        // 3 passes pour être sûr (Facebook charge parfois les boutons en lazy)
         await clickerVoirPlus();
-        await new Promise(r => setTimeout(r, 600));
-        // Cliquer une deuxième fois pour les boutons apparus après le premier chargement
         await clickerVoirPlus();
-        await new Promise(r => setTimeout(r, 600));
+        await clickerVoirPlus();
 
         resolveAll();
       }),
@@ -347,11 +337,13 @@ async function lancerScan() {
           return images;
         }
 
-        // ── Texte complet sans "voir plus" résiduel ──────────────────────────────
+        // ── Texte complet sans "voir plus" résiduel ni "..." de troncature ─────
         function nettoyerTexte(texte) {
           return texte
             .replace(/\s*\.\.\.\s*(voir plus|see more|lire la suite|afficher plus)\s*/gi, '')
             .replace(/^(voir plus|see more)\s*/gi, '')
+            .replace(/\s*…\s*$/, '')   // ellipsis unicode
+            .replace(/\s*\.\.\.\s*$/, '')   // "..." trailing
             .trim();
         }
 
@@ -911,24 +903,23 @@ async function ibigFullPageScan(token, API, prevCount) {
       return { posts, allTooOld: tooOld.length > 5 && posts.length === 0 };
     }
 
-    async function expandAll() {
+    function trouverVoirPlus() {
       const VOIR = ['voir plus','see more','lire la suite','voir la suite','afficher plus'];
-      const btns = Array.from(document.querySelectorAll('[role="button"],[role="link"],button')).filter(b => VOIR.some(k=>(b.innerText||b.textContent||'').trim().toLowerCase().includes(k)));
-      if (!btns.length) return;
-      await Promise.all(btns.map(btn => new Promise(resolve => {
-        const c = btn.closest('[data-pagelet]')||btn.closest('div[role="feed"]>div')||btn.closest('[role="article"]')||btn.parentElement?.parentElement?.parentElement;
-        if (!c) { try{btn.click();}catch(_){} return resolve(); }
-        const avant = c.innerText?.length||0; let done=false;
-        const fin = () => { if(!done){done=true;obs.disconnect();resolve();} };
-        const obs = new MutationObserver(()=>{ if((c.innerText?.length||0)>avant+30) fin(); });
-        obs.observe(c,{childList:true,subtree:true,characterData:true}); setTimeout(fin,5000);
-        try{btn.click();}catch(_){}
-      })));
-      // 2ème passe pour les boutons apparus après expansion
-      await new Promise(r=>setTimeout(r,600));
-      const btns2 = Array.from(document.querySelectorAll('[role="button"],[role="link"],button')).filter(b => VOIR.some(k=>(b.innerText||b.textContent||'').trim().toLowerCase().includes(k)));
-      btns2.forEach(b => { try{b.click();}catch(_){} });
-      await new Promise(r=>setTimeout(r,800));
+      const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
+        .filter(el => {
+          const t = (el.innerText||el.textContent||'').trim().toLowerCase();
+          return t.length > 0 && t.length <= 40 && VOIR.some(k => t.includes(k));
+        });
+      return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+    }
+
+    async function expandAll() {
+      for (let pass = 0; pass < 3; pass++) {
+        const btns = trouverVoirPlus();
+        if (!btns.length) break;
+        btns.forEach(b => { try{b.click();}catch(_){} });
+        await new Promise(r=>setTimeout(r,2000));
+      }
     }
 
     async function run(scrolls) {
