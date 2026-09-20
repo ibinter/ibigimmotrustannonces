@@ -1,5 +1,18 @@
 node_modules/
 dist/
 .env
+.env.vps
 uploads/
 *.log
+.claude/
+
+# Scripts FTP avec credentials
+frontend/deploy-ftp.mjs
+frontend/deploy-ftp-retry.mjs
+frontend/list-ftp.mjs
+frontend/list-site.mjs
+frontend/download-htaccess.mjs
+frontend/patch-htaccess.mjs
+frontend/read-htaccess.mjs
+frontend/remove-subhtaccess.mjs
+frontend/root-site-htaccess*.txt
