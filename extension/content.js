@@ -60,7 +60,7 @@ window.__ibigCaptureImages = async () => {
     const src = img.src;
     if (!src || /emoji|avatar|sticker|rsrc\.php|1x1/i.test(src)) continue;
     if ((img.naturalWidth||0) < 100 || (img.naturalHeight||0) < 100) continue;
-    if (imgs.length >= 6) break;
+    if (imgs.length >= 10) break;
     try {
       const r = await fetch(src, { credentials: 'include' });
       const blob = await r.blob();

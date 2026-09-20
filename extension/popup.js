@@ -913,7 +913,7 @@ async function ibigFullPageScan(token, API, prevCount) {
 
     async function expandAll() {
       const VOIR = ['voir plus','see more','lire la suite','voir la suite','afficher plus'];
-      const btns = Array.from(document.querySelectorAll('[role="button"]')).filter(b => VOIR.some(k=>(b.innerText||b.textContent||'').trim().toLowerCase().includes(k)));
+      const btns = Array.from(document.querySelectorAll('[role="button"],[role="link"],button')).filter(b => VOIR.some(k=>(b.innerText||b.textContent||'').trim().toLowerCase().includes(k)));
       if (!btns.length) return;
       await Promise.all(btns.map(btn => new Promise(resolve => {
         const c = btn.closest('[data-pagelet]')||btn.closest('div[role="feed"]>div')||btn.closest('[role="article"]')||btn.parentElement?.parentElement?.parentElement;
@@ -921,10 +921,14 @@ async function ibigFullPageScan(token, API, prevCount) {
         const avant = c.innerText?.length||0; let done=false;
         const fin = () => { if(!done){done=true;obs.disconnect();resolve();} };
         const obs = new MutationObserver(()=>{ if((c.innerText?.length||0)>avant+30) fin(); });
-        obs.observe(c,{childList:true,subtree:true,characterData:true}); setTimeout(fin,4000);
+        obs.observe(c,{childList:true,subtree:true,characterData:true}); setTimeout(fin,5000);
         try{btn.click();}catch(_){}
       })));
-      await new Promise(r=>setTimeout(r,400));
+      // 2ème passe pour les boutons apparus après expansion
+      await new Promise(r=>setTimeout(r,600));
+      const btns2 = Array.from(document.querySelectorAll('[role="button"],[role="link"],button')).filter(b => VOIR.some(k=>(b.innerText||b.textContent||'').trim().toLowerCase().includes(k)));
+      btns2.forEach(b => { try{b.click();}catch(_){} });
+      await new Promise(r=>setTimeout(r,800));
     }
 
     async function run(scrolls) {
@@ -938,6 +942,7 @@ async function ibigFullPageScan(token, API, prevCount) {
         if(nomGroupe) fd.append('groupe_source',nomGroupe);
         if(post.lien) fd.append('lien_original',post.lien);
         if(post.auteur) fd.append('auteur_nom',post.auteur);
+        if(ia.titre)      fd.append('titre',ia.titre);
         if(ia.type_bien) fd.append('type_bien',ia.type_bien);
         if(ia.transaction) fd.append('transaction',ia.transaction);
         if(ia.commune) fd.append('commune',ia.commune);
@@ -946,7 +951,8 @@ async function ibigFullPageScan(token, API, prevCount) {
         if(ia.superficie) fd.append('superficie',String(ia.superficie));
         if(ia.nb_pieces) fd.append('nb_pieces',String(ia.nb_pieces));
         if(ia.contact) fd.append('contact',ia.contact);
-        if(ia.description) fd.append('description_ia',ia.description);
+        if(ia.description_ia) fd.append('description_ia',ia.description_ia);
+        else if(ia.description) fd.append('description_ia',ia.description);
         let mc=0;
         for(const src of post.imgs.slice(0,10)){if(mc>=10)break;try{await new Promise(r=>setTimeout(r,300+Math.random()*400));const r=await fetch(src,{credentials:'include'});if(!r.ok)continue;const b=await r.blob();if(b.type.startsWith('image/')&&b.size>5000){fd.append('images',b,`img.${b.type.split('/')[1]||'jpg'}`);mc++;}}catch(_){}}
         try{const res=await fetch(`${API}/api/annonces`,{method:'POST',headers:{'Authorization':`Bearer ${token}`},body:fd});if(res.ok){totalSaved++;try{chrome.runtime.sendMessage({type:'IBIG_COUNT_UPDATE',count:totalSaved});}catch(_){}}}catch(_){}
