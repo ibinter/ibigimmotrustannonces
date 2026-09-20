@@ -189,7 +189,9 @@ function extractFullPost() {
     const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
       .filter(el => {
         const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-        return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
+        if (!t) return false;
+        if (t.length <= 40 && VOIR_PLUS.some(k => t.includes(k))) return true;
+        return VOIR_PLUS.some(k => t.endsWith(k) || t.endsWith('...'+k) || t.endsWith('… '+k) || t.endsWith('... '+k));
       });
     const innermost = candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
     innermost.forEach(el => { try { el.click(); } catch(_){} });
@@ -514,13 +516,13 @@ async function ibigFullPageScan(token, API, prevCount) {
       const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
 
       function trouverBoutons() {
-        // Chercher dans TOUS les éléments du DOM, pas seulement role=button
         const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
           .filter(el => {
             const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-            return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
+            if (!t) return false;
+            if (t.length <= 40 && VOIR_PLUS.some(k => t.includes(k))) return true;
+            return VOIR_PLUS.some(k => t.endsWith(k) || t.endsWith('...'+k) || t.endsWith('… '+k) || t.endsWith('... '+k));
           });
-        // Garder seulement les éléments les plus profonds (pas les conteneurs)
         return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
       }
 

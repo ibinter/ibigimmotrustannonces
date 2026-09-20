@@ -222,12 +222,14 @@ async function lancerScan() {
         const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
 
         function trouverBoutonsVoirPlus() {
-          // Chercher dans TOUS les éléments (pas seulement role=button)
           const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
             .filter(el => {
               const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-              // Texte court = c'est probablement LE bouton et pas un conteneur
-              return t.length > 0 && t.length <= 40 && VOIR_PLUS.some(k => t.includes(k));
+              if (!t) return false;
+              // Bouton court dont le texte EST "voir plus"
+              if (t.length <= 40 && VOIR_PLUS.some(k => t.includes(k))) return true;
+              // Texte tronqué qui se termine par "... voir plus" ou "…voir plus"
+              return VOIR_PLUS.some(k => t.endsWith(k) || t.endsWith('...' + k) || t.endsWith('… ' + k) || t.endsWith('...' + ' ' + k));
             });
           // Garder seulement les éléments les plus profonds (pas les ancêtres)
           return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
@@ -908,7 +910,9 @@ async function ibigFullPageScan(token, API, prevCount) {
       const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
         .filter(el => {
           const t = (el.innerText||el.textContent||'').trim().toLowerCase();
-          return t.length > 0 && t.length <= 40 && VOIR.some(k => t.includes(k));
+          if (!t) return false;
+          if (t.length <= 40 && VOIR.some(k => t.includes(k))) return true;
+          return VOIR.some(k => t.endsWith(k) || t.endsWith('...'+k) || t.endsWith('… '+k) || t.endsWith('... '+k));
         });
       return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
     }

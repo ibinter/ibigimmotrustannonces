@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "IBIG Immo Trust — Capteur",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Capture automatique des annonces immobilières Facebook vers IBIG Immo Trust",
   "permissions": ["activeTab", "scripting", "storage", "alarms", "tabs"],
   "host_permissions": [
