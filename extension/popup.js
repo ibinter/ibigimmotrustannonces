@@ -215,38 +215,53 @@ async function lancerScan() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) { btn.textContent = '🔍 Scanner les posts visibles maintenant'; btn.disabled=false; return; }
 
-    // Étape 1 : cliquer TOUS les "Voir plus" — recherche exhaustive dans tout le DOM
+    // Étape 1 : expanderVoirPlus par article avec MutationObserver (vrai attente Ajax)
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => new Promise(async resolveAll => {
-        const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
+        const VOIR = ['voir plus','see more','lire la suite','voir la suite','afficher plus'];
 
-        function trouverBoutonsVoirPlus() {
-          const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
-            .filter(el => {
-              const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-              if (!t) return false;
-              // Bouton court dont le texte EST "voir plus"
-              if (t.length <= 40 && VOIR_PLUS.some(k => t.includes(k))) return true;
-              // Texte tronqué qui se termine par "... voir plus" ou "…voir plus"
-              return VOIR_PLUS.some(k => t.endsWith(k) || t.endsWith('...' + k) || t.endsWith('… ' + k) || t.endsWith('...' + ' ' + k));
+        // Trouve le bouton "Voir plus" dans un container donné
+        function findVoirPlus(root) {
+          const all = Array.from(root.querySelectorAll('*'));
+          const candidats = all.filter(el => {
+            const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+            if (!t || t.length > 200) return false;
+            // Texte court qui contient "voir plus"
+            if (VOIR.some(k => t.includes(k))) return true;
+            // aria-label
+            const lbl = (el.getAttribute('aria-label')||'').toLowerCase();
+            return VOIR.some(k => lbl.includes(k));
+          });
+          // Garder seulement les plus profonds
+          return candidats.filter(el => !candidats.some(o => o !== el && el.contains(o)));
+        }
+
+        // Clique "Voir plus" dans un article et attend la réponse Ajax (max 5s)
+        async function expanderArticle(article) {
+          const boutons = findVoirPlus(article);
+          if (!boutons.length) return;
+          const avant = article.innerText.length;
+          boutons.forEach(b => { try { b.click(); } catch(_){} });
+          await new Promise(resolve => {
+            const obs = new MutationObserver(() => {
+              if (article.innerText.length > avant + 50) { obs.disconnect(); resolve(); }
             });
-          // Garder seulement les éléments les plus profonds (pas les ancêtres)
-          return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+            obs.observe(article, { childList: true, subtree: true, characterData: true });
+            setTimeout(() => { obs.disconnect(); resolve(); }, 5000);
+          });
         }
 
-        async function clickerVoirPlus() {
-          const boutons = trouverBoutonsVoirPlus();
-          if (!boutons.length) return 0;
-          boutons.forEach(btn => { try { btn.click(); } catch(_) {} });
-          await new Promise(r => setTimeout(r, 2500));
-          return boutons.length;
-        }
+        // Traiter tous les articles du feed
+        const articles = Array.from(new Set([
+          ...document.querySelectorAll('div[role="article"]'),
+          ...document.querySelectorAll('div[role="feed"] > div'),
+          ...document.querySelectorAll('[data-pagelet*="FeedUnit"]'),
+        ]));
 
-        // 3 passes pour être sûr (Facebook charge parfois les boutons en lazy)
-        await clickerVoirPlus();
-        await clickerVoirPlus();
-        await clickerVoirPlus();
+        for (const art of articles) {
+          await expanderArticle(art);
+        }
 
         resolveAll();
       }),

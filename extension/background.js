@@ -513,25 +513,39 @@ async function ibigFullPageScan(token, API, prevCount) {
     }
 
     async function expanderTousVoirPlus() {
-      const VOIR_PLUS = ['voir plus', 'see more', 'lire la suite', 'voir la suite', 'afficher plus'];
+      const VOIR = ['voir plus','see more','lire la suite','voir la suite','afficher plus'];
 
-      function trouverBoutons() {
-        const candidats = Array.from(document.querySelectorAll('div,span,a,button,[role="button"],[role="link"]'))
-          .filter(el => {
-            const t = (el.innerText || el.textContent || '').trim().toLowerCase();
-            if (!t) return false;
-            if (t.length <= 40 && VOIR_PLUS.some(k => t.includes(k))) return true;
-            return VOIR_PLUS.some(k => t.endsWith(k) || t.endsWith('...'+k) || t.endsWith('… '+k) || t.endsWith('... '+k));
-          });
-        return candidats.filter(el => !candidats.some(other => other !== el && el.contains(other)));
+      function findVoirPlusDans(root) {
+        const all = Array.from(root.querySelectorAll('*'));
+        const candidats = all.filter(el => {
+          const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+          if (!t || t.length > 200) return false;
+          if (VOIR.some(k => t.includes(k))) return true;
+          const lbl = (el.getAttribute('aria-label')||'').toLowerCase();
+          return VOIR.some(k => lbl.includes(k));
+        });
+        return candidats.filter(el => !candidats.some(o => o !== el && el.contains(o)));
       }
 
-      // 3 passes avec délai pour couvrir le chargement lazy de Facebook
-      for (let pass = 0; pass < 3; pass++) {
-        const boutons = trouverBoutons();
-        if (!boutons.length) break;
-        boutons.forEach(btn => { try { btn.click(); } catch(_) {} });
-        await new Promise(r => setTimeout(r, 2000));
+      // Traiter article par article avec MutationObserver (vrai attente Ajax)
+      const articles = Array.from(new Set([
+        ...document.querySelectorAll('div[role="article"]'),
+        ...document.querySelectorAll('div[role="feed"] > div'),
+        ...document.querySelectorAll('[data-pagelet*="FeedUnit"]'),
+      ]));
+
+      for (const art of articles) {
+        const boutons = findVoirPlusDans(art);
+        if (!boutons.length) continue;
+        const avant = art.innerText.length;
+        boutons.forEach(b => { try { b.click(); } catch(_){} });
+        await new Promise(resolve => {
+          const obs = new MutationObserver(() => {
+            if (art.innerText.length > avant + 50) { obs.disconnect(); resolve(); }
+          });
+          obs.observe(art, { childList: true, subtree: true, characterData: true });
+          setTimeout(() => { obs.disconnect(); resolve(); }, 5000);
+        });
       }
     }
 
